@@ -7,6 +7,8 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <signal.h>
+#include <time.h>
 
 #include "messages.h"
 #include "utils_v1.h"
@@ -58,6 +60,12 @@ int initSocketServer(int serverPort)
   return sockfd;
 }
 
+// Gestionnaire de signal pour SIGALRM (temporisation)
+void alarmHandler(int sig)
+{
+
+}
+
 int main(int argc, char **argv)
 {
   StructMessage msg;
@@ -84,6 +92,9 @@ int main(int argc, char **argv)
 
   while (!end)
   {
+    // TIMER 30 SECOND
+    alarm(30);
+    ssigaction(SIGALRM, alarmHandler);
 
     /* client trt */
     int newsockfd = accept(sockfd, NULL, NULL);
@@ -94,6 +105,9 @@ int main(int argc, char **argv)
     checkNeg(newsockfd, "ERROR accept");
 
     ssize_t ret = read(newsockfd, &msg, sizeof(msg));
+
+    ssigaction(SIGALRM, SIG_DFL);
+    
     if (end)
     {
       terminate(tabPlayers, nbPlayers);
