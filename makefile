@@ -1,15 +1,22 @@
 CFLAGS=-std=c11 -pedantic -Wvla -Wall -Werror -D_DEFAULT_SOURCE -g
 
-all: encrypt decrypt encryptPolybe decryptPolybe
+all: client server
 
-# EDITION DES LIENS
+# Server
 
-# exécutables ROT13
+server : server.o utils_v1.o
+	$(CC) $(CCFLAGS) -o server server.o utils_v1.o
+server.o: server.c messages.h
+	$(CC) $(CCFLAGS) -c server.c
 
+# Client
 
-# exécutables 
+client : client.o utils_v1.o
+	$(CC) $(CCFLAGS) -o client client.o utils_v1.o
+client.o: client.c messages.h
+	$(CC) $(CCFLAGS) -c client.c
 
-# COMPILATION
+# UTILS
 
 utils_v1.o: utils_v1.c utils_v1.h
 	cc $(CFLAGS) -c utils_v1.c
@@ -17,5 +24,4 @@ utils_v1.o: utils_v1.c utils_v1.h
 # NETTOYAGE
 clean: 
 	rm -f *.o
-	rm -f encrypt decrypt encryptPolybe decryptPolybe
-	
+	rm -f $(ALL)
