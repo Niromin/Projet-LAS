@@ -1,149 +1,166 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <signal.h>
-#include <time.h>
+#include <unistd.h>
 
 #include "messages.h"
 #include "utils_v1.h"
 
-#define MIN_PLAYERS 2 // Nombre minimum de joueurs requis pour démarrer le jeu
+#define MAX_PLAYERS 5
+#define MIN_PLAYERS 2
 #define BACKLOG 5
-#define REGISTRATION_TIME 30 // Temps d'inscription en secondes
+#define TIME_INSCRIPTION 30
 
 typedef struct Player
 {
-  char pseudo[MAX_PSEUDO];
-  int sockfd;
+	char pseudo[MAX_PSEUDO];
+	int sockfd;
+	int shot;
 } Player;
 
-volatile sig_atomic_t end = 0;
+
+
+/*** globals variables ***/
+Player tabPlayers[MAX_PLAYERS];
+volatile sig_atomic_t end_inscriptions = 0;
 
 void endServerHandler(int sig)
 {
-  end = 1;
+	end_inscriptions = 1;
 }
 
-void terminate(Player *tabPlayers, int nbPlayers)
+void disconnect_players(Player *tabPlayers, int nbPlayers)
 {
-  printf("\nJoueurs inscrits : \n");
-  for (int i = 0; i < nbPlayers; i++)
-  {
-      printf("  - %s inscrit\n", tabPlayers[i].pseudo);
-  }
-  exit(0);
+	for (int i = 0; i < nbPlayers; i++)
+		sclose(tabPlayers[i].sockfd);
+	return;
 }
+
+
 
 /**
  * PRE:  serverPort: a valid port number
  * POST: on success, binds a socket to 0.0.0.0:serverPort and listens to it ;
  *       on failure, displays error cause and quits the program
- * RES: return socket file descriptor
+ * RES:  return socket file descriptor
  */
-int initSocketServer(int serverPort)
+int initSocketServer(int port)
 {
-  int sockfd = ssocket();
+	int sockfd = ssocket();
 
-  /* no socket error */
+	/* no socket error */
 
-  sbind(serverPort, sockfd);
+	// setsockopt -> to avoid Address Already in Use
+	// to do before bind !
+	int option = 1;
+	setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(int));
 
-  /* no bind error */
-  slisten(sockfd, BACKLOG);
+	sbind(port, sockfd);
 
-  /* no listen error */
-  return sockfd;
-}
+	/* no bind error */
+	slisten(sockfd, BACKLOG);
 
-// Gestionnaire de signal pour SIGALRM (temporisation)
-void alarmHandler(int sig)
-{
-
+	/* no listen error */
+	return sockfd;
 }
 
 int main(int argc, char **argv)
 {
-  StructMessage msg;
-  Player tabPlayers[BACKLOG]; // Utilisez une taille de tableau pour gérer plusieurs joueurs
-  int nbPlayers = 0;
+	int sockfd, newsockfd, i;
+	StructMessage msg;
+	int ret;
+	struct pollfd fds[MAX_PLAYERS];
+	char winnerName[256];
 
-  sigset_t set;
-  ssigemptyset(&set);
-  sigaddset(&set, SIGINT);
-  sigaddset(&set, SIGTERM);
-  ssigprocmask(SIG_BLOCK, &set, NULL);
+	ssigaction(SIGALRM, endServerHandler);
 
-  ssigaction(SIGTERM, endServerHandler);
-  ssigaction(SIGINT, endServerHandler);
+	sockfd = initSocketServer(SERVER_PORT);
+	printf("Le serveur tourne sur le port : %i \n", SERVER_PORT);
 
-  int sockfd = initSocketServer(SERVER_PORT);
-  printf("Le serveur tourne sur le port : %i \n", SERVER_PORT);
+	i = 0;
+	int nbPLayers = 0;
 
-  // setsockopt -> to avoid Address Already in Use
-  int option = 1;
-  setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(int));
+	// INSCRIPTION PART
+	alarm(TIME_INSCRIPTION);
 
-  ssigprocmask(SIG_UNBLOCK, &set, NULL);
+	while (!end_inscriptions)
+	{
+		/* client trt */
+		newsockfd = accept(sockfd, NULL, NULL); // saccept() exit le programme si accept a été interrompu par l'alarme
+		if (newsockfd > 0)						/* no error on accept */
+		{
 
-  while (!end)
-  {
-  // Set a timer for the registration phase
-  alarm(REGISTRATION_TIME);
-  ssigaction(SIGALRM, alarmHandler);
+			ret = sread(newsockfd, &msg, sizeof(msg));
 
-  printf("Phase d'inscription en cours... Temps restant : %d secondes\n", REGISTRATION_TIME);
+			if (msg.code == INSCRIPTION_REQUEST)
+			{
+				printf("Inscription demandée par le joueur : %s\n", msg.messageText);
 
-  // Accept registration requests during the registration phase
-  while (!end)
-  {
-    // Accept client connections
-    int newsockfd = accept(sockfd, NULL, NULL);
-    if (end)
-    {
-      terminate(tabPlayers, nbPlayers);
-    }
-    checkNeg(newsockfd, "ERROR accept");
+				strcpy(tabPlayers[i].pseudo, msg.messageText);
+				tabPlayers[i].sockfd = newsockfd;
+				i++;
 
-    // Read registration request from client
-    ssize_t ret = read(newsockfd, &msg, sizeof(msg));
-    if (end)
-    {
-      terminate(tabPlayers, nbPlayers);
-    }
-    checkNeg(ret, "ERROR READ");
+				if (nbPLayers < MAX_PLAYERS)
+				{
+					msg.code = INSCRIPTION_OK;
+					nbPLayers++;
+					if (nbPLayers == MAX_PLAYERS)
+					{
+						alarm(0); // cancel alarm
+						end_inscriptions = 1;
+					}
+				}
+				else
+				{
+					msg.code = INSCRIPTION_KO;
+				}
+				ret = swrite(newsockfd, &msg, sizeof(msg));
+				printf("Nb Inscriptions : %i\n", nbPLayers);
+			}
+		}
+	}
 
-    printf("Inscription demandée par le joueur : %s\n", msg.messageText);
+	printf("FIN DES INSCRIPTIONS\n");
+	if (nbPLayers != MIN_PLAYERS)
+	{
+		printf("PARTIE ANNULEE .. PAS ASSEZ DE JOUEURS\n");
+		msg.code = CANCEL_GAME;
+		for (i = 0; i < nbPLayers; i++)
+		{
+			swrite(tabPlayers[i].sockfd, &msg, sizeof(msg));
+		}
+		disconnect_players(tabPlayers, nbPLayers);
+		sclose(sockfd);
+		exit(0);
+	}
+	else
+	{
+		printf("PARTIE VA DEMARRER ... \n");
+		msg.code = START_GAME;
+		for (i = 0; i < nbPLayers; i++)
+			swrite(tabPlayers[i].sockfd, &msg, sizeof(msg));
+	}
 
-    // Accept the registration request
-    if (nbPlayers < BACKLOG)
-    {
-      msg.code = INSCRIPTION_OK;
-      strcpy(tabPlayers[nbPlayers].pseudo, msg.messageText);
-      tabPlayers[nbPlayers].sockfd = newsockfd;
-      nbPlayers++;
-    }
-    else
-    {
-      msg.code = INSCRIPTION_KO;
-    }
+	// GAME PART
+	int nbPlayersAlreadyPlayed = 0;
 
-    // Send registration response to the client
-    nwrite(newsockfd, &msg, sizeof(msg));
-    printf("Nb Inscriptions : %i\n", nbPlayers);
-  }
+	// init poll
+	for (i = 0; i < MAX_PLAYERS; i++)
+	{
+		fds[i].fd = tabPlayers[i].sockfd;
+		fds[i].events = POLLIN;
+	}
+	// loop game
+	/*while ()
+	{
+		
+	}
+  */
 
-  // Reset the timer and proceed to the game phase
-  ssigaction(SIGALRM, SIG_DFL);
-  printf("Fin de la phase d'inscription.\n");
-
-  // Optional: Start the game phase here
-  }
-
-  sclose(sockfd);
-  return 0;
+	printf("GAGNANT : %s\n", winnerName);
+	disconnect_players(tabPlayers, nbPLayers);
+	sclose(sockfd);
+	return 0;
 }
