@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "messages.h"
 #include "utils_v1.h"
@@ -21,13 +22,6 @@ typedef struct Player
 	int sockfd;
 	int shot;
 } Player;
-
-typedef struct Tile
-{
-  int number;
-} Tile;
-
-
 
 /*** globals variables ***/
 Player tabPlayers[MAX_PLAYERS];
@@ -187,6 +181,28 @@ int main(int argc, char **argv)
 		fds[i].fd = tabPlayers[i].sockfd;
 		fds[i].events = POLLIN;
 	}
+
+  int tour;
+  while(tour != TOTAL_ROUNDS)
+  {
+    // Choix d'une tuile au hasard
+    srand(time(NULL)); // Initialisation de la graine pour la fonction rand
+    int randomIndex = rand() % MAX_TILES; // Choix d'un index aléatoire
+    Tile currentTile = gameTiles[randomIndex]; // Sélection de la tuile aléatoire
+
+    // Envoi de la tuile à chaque joueur
+    for (int i = 0; i < nbPLayers; i++)
+    {
+      StructMessage msg;
+      msg.tile = currentTile;
+      swrite(tabPlayers[i].sockfd, &msg, sizeof(msg));
+    }
+
+    // Attente des réponses des joueurs et mise à jour du jeu
+    // Code à implémenter dans les prochaines étapes
+
+    tour++; // Passage au tour suivant
+  }
 	// loop game
 	/*while ()
 	{

@@ -25,6 +25,11 @@ int initSocketClient(char *serverIP, int serverPort)
 	return sockfd;
 }
 
+void displayTile(Tile tile)
+{
+  printf("Tuile tirée : %d\n", tile.number);
+}
+
 int main(int argc, char **argv)
 {
 
@@ -71,8 +76,11 @@ int main(int argc, char **argv)
 	if (msg.code == START_GAME)
 	{
 		printf("DEBUT JEU\n");
-		swrite(sockfd, &msg, sizeof(msg));
-	}
+    swrite(sockfd, &msg, sizeof(msg));
+
+    sread(sockfd, &msg, sizeof(msg));
+    displayTile(msg.tile);
+  }
 	else
 	{
 		printf("PARTIE ANNULEE\n");
