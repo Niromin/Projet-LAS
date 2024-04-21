@@ -10,8 +10,10 @@
 
 #define MAX_PLAYERS 5
 #define MIN_PLAYERS 2
+#define MAX_TILES 40
 #define BACKLOG 5
-#define TIME_INSCRIPTION 30
+#define TIME_INSCRIPTION 10
+#define TOTAL_ROUNDS 20
 
 typedef struct Player
 {
@@ -19,6 +21,11 @@ typedef struct Player
 	int sockfd;
 	int shot;
 } Player;
+
+typedef struct Tile
+{
+  int number;
+} Tile;
 
 
 
@@ -36,6 +43,22 @@ void disconnect_players(Player *tabPlayers, int nbPlayers)
 	for (int i = 0; i < nbPlayers; i++)
 		sclose(tabPlayers[i].sockfd);
 	return;
+}
+
+void createTiles(Tile *tiles, int numTiles)
+{
+    int tileNumbers[MAX_TILES] = 
+    {
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+      11, 11, 12, 12, 13, 13, 14, 14, 15, 15,
+      16, 16, 17, 17, 18, 18, 19, 19, 20, 21,
+      22, 23, 24, 25, 26, 27, 28, 29, 30, -1
+    }; // -1 = joker
+
+    for (int i = 0; i < numTiles; i++)
+    {
+        tiles[i].number = tileNumbers[i];
+    }
 }
 
 
@@ -142,6 +165,18 @@ int main(int argc, char **argv)
 		for (i = 0; i < nbPLayers; i++)
 			swrite(tabPlayers[i].sockfd, &msg, sizeof(msg));
 	}
+
+  // GESTION TUILE
+  Tile gameTiles[MAX_TILES];
+  createTiles(gameTiles, MAX_TILES);
+
+  printf("Game tiles:\n");
+  for (int i = 0; i < MAX_TILES; i++)
+  {
+    printf("%d ", gameTiles[i].number);
+  }
+  printf("\n");
+
 
 	// GAME PART
 	int nbPlayersAlreadyPlayed = 0;
