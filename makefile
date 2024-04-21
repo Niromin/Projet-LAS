@@ -1,6 +1,10 @@
 CFLAGS=-std=c11 -pedantic -Wvla -Wall -Werror -D_DEFAULT_SOURCE -g
 
-all: client server
+CC=gcc
+
+ALL= server client
+
+all: $(ALL)
 
 # Server
 

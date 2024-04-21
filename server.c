@@ -1,4 +1,3 @@
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,8 +12,9 @@
 #include "messages.h"
 #include "utils_v1.h"
 
-#define MAX_PLAYERS 2
+#define MIN_PLAYERS 2 // Nombre minimum de joueurs requis pour démarrer le jeu
 #define BACKLOG 5
+#define REGISTRATION_TIME 30 // Temps d'inscription en secondes
 
 typedef struct Player
 {
@@ -34,7 +34,7 @@ void terminate(Player *tabPlayers, int nbPlayers)
   printf("\nJoueurs inscrits : \n");
   for (int i = 0; i < nbPlayers; i++)
   {
-    printf("  - %s inscrit\n", tabPlayers[i].pseudo);
+      printf("  - %s inscrit\n", tabPlayers[i].pseudo);
   }
   exit(0);
 }
@@ -69,7 +69,7 @@ void alarmHandler(int sig)
 int main(int argc, char **argv)
 {
   StructMessage msg;
-  Player tabPlayers[MAX_PLAYERS];
+  Player tabPlayers[BACKLOG]; // Utilisez une taille de tableau pour gérer plusieurs joueurs
   int nbPlayers = 0;
 
   sigset_t set;
@@ -92,11 +92,16 @@ int main(int argc, char **argv)
 
   while (!end)
   {
-    // TIMER 30 SECOND
-    alarm(30);
-    ssigaction(SIGALRM, alarmHandler);
+  // Set a timer for the registration phase
+  alarm(REGISTRATION_TIME);
+  ssigaction(SIGALRM, alarmHandler);
 
-    /* client trt */
+  printf("Phase d'inscription en cours... Temps restant : %d secondes\n", REGISTRATION_TIME);
+
+  // Accept registration requests during the registration phase
+  while (!end)
+  {
+    // Accept client connections
     int newsockfd = accept(sockfd, NULL, NULL);
     if (end)
     {
@@ -104,10 +109,8 @@ int main(int argc, char **argv)
     }
     checkNeg(newsockfd, "ERROR accept");
 
+    // Read registration request from client
     ssize_t ret = read(newsockfd, &msg, sizeof(msg));
-
-    ssigaction(SIGALRM, SIG_DFL);
-    
     if (end)
     {
       terminate(tabPlayers, nbPlayers);
@@ -115,7 +118,9 @@ int main(int argc, char **argv)
     checkNeg(ret, "ERROR READ");
 
     printf("Inscription demandée par le joueur : %s\n", msg.messageText);
-    if (nbPlayers < MAX_PLAYERS)
+
+    // Accept the registration request
+    if (nbPlayers < BACKLOG)
     {
       msg.code = INSCRIPTION_OK;
       strcpy(tabPlayers[nbPlayers].pseudo, msg.messageText);
@@ -127,8 +132,18 @@ int main(int argc, char **argv)
       msg.code = INSCRIPTION_KO;
     }
 
+    // Send registration response to the client
     nwrite(newsockfd, &msg, sizeof(msg));
     printf("Nb Inscriptions : %i\n", nbPlayers);
   }
+
+  // Reset the timer and proceed to the game phase
+  ssigaction(SIGALRM, SIG_DFL);
+  printf("Fin de la phase d'inscription.\n");
+
+  // Optional: Start the game phase here
+  }
+
   sclose(sockfd);
+  return 0;
 }
