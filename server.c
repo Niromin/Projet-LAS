@@ -5,7 +5,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "messages.h"
+#include "jeu.h"
 #include "utils_v1.h"
 
 #define MAX_PLAYERS 5

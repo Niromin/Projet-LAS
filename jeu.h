@@ -1,5 +1,5 @@
-#ifndef _MESSAGES_H_
-#define _MESSAGES_H_
+#ifndef _JEU_H_
+#define _JEU_H_
 
 #define SERVER_PORT 9502
 #define SERVER_IP "127.0.0.1" /* localhost */
