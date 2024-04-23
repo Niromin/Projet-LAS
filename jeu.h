@@ -1,5 +1,5 @@
-#ifndef _MESSAGES_H_
-#define _MESSAGES_H_
+#ifndef _JEU_H_
+#define _JEU_H_
 
 #define SERVER_PORT 9502
 #define SERVER_IP "127.0.0.1" /* localhost */
@@ -10,7 +10,8 @@
 #define INSCRIPTION_KO 12
 #define START_GAME 13
 #define CANCEL_GAME 14
-#define TILE_DRAW 15
+#define END_GAME 15
+#define TILE_DRAW 16
 
 typedef struct
 {

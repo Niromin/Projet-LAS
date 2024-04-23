@@ -10,14 +10,14 @@ all: $(ALL)
 
 server : server.o utils_v1.o
 	$(CC) $(CCFLAGS) -o server server.o utils_v1.o
-server.o: server.c messages.h
+server.o: server.c jeu.h
 	$(CC) $(CCFLAGS) -c server.c
 
 # Client
 
 client : client.o utils_v1.o
 	$(CC) $(CCFLAGS) -o client client.o utils_v1.o
-client.o: client.c messages.h
+client.o: client.c jeu.h
 	$(CC) $(CCFLAGS) -c client.c
 
 # UTILS

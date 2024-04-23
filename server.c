@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <time.h>
 
-#include "messages.h"
+#include "jeu.h"
 #include "utils_v1.h"
 
 #define MAX_PLAYERS 5
@@ -140,7 +140,7 @@ int main(int argc, char **argv)
 	}
 
 	printf("FIN DES INSCRIPTIONS\n");
-	if (nbPLayers != MIN_PLAYERS)
+	if (nbPLayers < MIN_PLAYERS)
 	{
 		printf("PARTIE ANNULEE .. PAS ASSEZ DE JOUEURS\n");
 		msg.code = CANCEL_GAME;
@@ -156,8 +156,9 @@ int main(int argc, char **argv)
 	{
 		printf("PARTIE VA DEMARRER ... \n");
 		msg.code = START_GAME;
-		for (i = 0; i < nbPLayers; i++)
+		for (i = 0; i < nbPLayers; i++){
 			swrite(tabPlayers[i].sockfd, &msg, sizeof(msg));
+		}
 	}
 
   // GESTION TUILE
@@ -172,6 +173,26 @@ int main(int argc, char **argv)
   printf("\n");
 
 
+
+  int tour = 1;
+  while(tour != TOTAL_ROUNDS)
+  {
+	printf("Tour n° %d\n",tour);
+	// Choix d'une tuile au hasard
+    srand(time(NULL)); 
+    int randomIndex = rand() % MAX_TILES; // Choix d'un index aléatoire
+    Tile currentTile = gameTiles[randomIndex]; // Sélection de la tuile aléatoire
+
+
+
+    // Envoi de la tuile à chaque joueur
+    for (int i = 0; i < nbPLayers; i++)
+    {
+      StructMessage msg;
+      msg.tile = currentTile;
+      swrite(tabPlayers[i].sockfd, &msg, sizeof(msg));
+    }
+
 	// GAME PART
 	int nbPlayersAlreadyPlayed = 0;
 
@@ -182,33 +203,43 @@ int main(int argc, char **argv)
 		fds[i].events = POLLIN;
 	}
 
-  int tour;
-  while(tour != TOTAL_ROUNDS)
-  {
-    // Choix d'une tuile au hasard
-    srand(time(NULL)); // Initialisation de la graine pour la fonction rand
-    int randomIndex = rand() % MAX_TILES; // Choix d'un index aléatoire
-    Tile currentTile = gameTiles[randomIndex]; // Sélection de la tuile aléatoire
+	while (nbPlayersAlreadyPlayed < nbPLayers)
+	{
+		// poll during 1 second
+		ret = poll(fds, MAX_PLAYERS, 1000);
+		checkNeg(ret, "server poll error");
 
-    // Envoi de la tuile à chaque joueur
-    for (int i = 0; i < nbPLayers; i++)
-    {
-      StructMessage msg;
-      msg.tile = currentTile;
-      swrite(tabPlayers[i].sockfd, &msg, sizeof(msg));
-    }
+		if (ret == 0)
+			continue;
 
-    // Attente des réponses des joueurs et mise à jour du jeu
-    // Code à implémenter dans les prochaines étapes
+		// check player something to read
+		for (i = 0; i < MAX_PLAYERS; i++)
+		{
+			if (fds[i].revents & POLLIN)
+			{
+				ret = sread(tabPlayers[i].sockfd, &msg, sizeof(msg));
+				// tester si la connexion du client a été fermée: close(sockfd) ==> read renvoie 0
+				// OU utiliser un tableau de booléens fds_invalid[i] pour indiquer
+				// qu'un socket a été traité et ne doit plus l'être (cf. exemple19_avec_poll)
+				// printf("poll detected POLLIN event on client socket %d (%s)... %s", tabPlayers[i].sockfd, tabPlayers[i].pseudo, ret == 0 ? "this socket is closed!\n" : "\n");
+
+				if (ret != 0)
+				{
+					tabPlayers[i].shot = msg.code;
+					printf("%s a joué \n", tabPlayers[i].pseudo);
+					nbPlayersAlreadyPlayed++;
+				}
+				// printf("Test 1\n");
+			}
+			// printf("Test 2\n");
+		}
+		// printf("Test 3\n");
+	}
+	printf("Test 4\n");
+    
 
     tour++; // Passage au tour suivant
   }
-	// loop game
-	/*while ()
-	{
-		
-	}
-  */
 
 	printf("GAGNANT : %s\n", winnerName);
 	disconnect_players(tabPlayers, nbPLayers);

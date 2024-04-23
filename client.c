@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include "messages.h"
+#include "jeu.h"
 #include "utils_v1.h"
 
 /**
@@ -28,6 +28,12 @@ int initSocketClient(char *serverIP, int serverPort)
 void displayTile(Tile tile)
 {
   printf("Tuile tirée : %d\n", tile.number);
+}
+
+void sendPlayerTurn(int sockfd){
+	StructMessage msg;
+    msg.code = TILE_DRAW;
+    swrite(sockfd, &msg, sizeof(msg));
 }
 
 int main(int argc, char **argv)
@@ -76,11 +82,16 @@ int main(int argc, char **argv)
 	if (msg.code == START_GAME)
 	{
 		printf("DEBUT JEU\n");
-    swrite(sockfd, &msg, sizeof(msg));
+		sread(sockfd, &msg, sizeof(msg));
+		displayTile(msg.tile);
+		printf("Placer une tuile dans la grille\n");
+		int position;
+		scanf("%d",&position);
+		sendPlayerTurn(sockfd);
 
-    sread(sockfd, &msg, sizeof(msg));
-    displayTile(msg.tile);
-  }
+		// swrite(sockfd, &msg, sizeof(msg));
+		
+	}
 	else
 	{
 		printf("PARTIE ANNULEE\n");
