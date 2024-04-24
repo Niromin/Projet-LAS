@@ -14,7 +14,7 @@
 #define MAX_TILES 40
 #define BACKLOG 5
 #define TIME_INSCRIPTION 10
-#define TOTAL_ROUNDS 3
+#define TOTAL_ROUNDS 21
 
 typedef struct Player
 {
@@ -231,7 +231,7 @@ int main(int argc, char **argv)
 		}
 		// printf("Test 3\n");
 	}
-	printf("Test 4\n");
+	// printf("Test 4\n");
     
 
     tour++; // Passage au tour suivant
