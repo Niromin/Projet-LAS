@@ -11,6 +11,14 @@
 #include "jeu.h"
 #include "utils_v1.h"
 
+#define GRID_SIZE 20
+
+// Creation de la grille
+typedef struct{
+	Tile tiles[GRID_SIZE];
+	int count; // Nombre de tuile dans la table
+}Grid;
+
 /**
  * PRE: serverIP : a valid IP address
  *      serverPort: a valid port number
@@ -25,6 +33,42 @@ int initSocketClient(char *serverIP, int serverPort)
 	return sockfd;
 }
 
+void initGrid(Grid *grid) {
+	for (int i = 0; i < GRID_SIZE; i++) {
+        grid->tiles[i].number = 0; // Initialise chaque emplacement avec une tuile vide
+    }
+}
+
+void placeTile(Grid *grid, Tile tile, int position) {
+    // Vérifie si la position est valide et si la grille n'est pas pleine
+    if (position >= 0 && position < GRID_SIZE && grid->count < GRID_SIZE) {
+        // Vérifie si la position est déjà occupée
+        while (grid->tiles[position].number != 0) {
+            position++; // Essaie la position suivante
+            if (position >= GRID_SIZE) {
+                position = 0; // Si on dépasse la taille de la grille, revenir au début
+            }
+        }
+        // Place la tuile à la position libre
+        grid->tiles[position] = tile;
+        grid->count++; // Incrémente le nombre de tuiles dans la grille
+    } else {
+        printf("Position invalide ou grille pleine.\n");
+    }
+}
+
+// Affiche la grille avec les tuiles
+void printGrid(Grid *grid) {
+    printf("Grille :\n");
+    for (int i = 0; i < GRID_SIZE; i++) {
+        if (grid->tiles[i].number != 0) {
+            printf("[%d] %d\n", i, grid->tiles[i].number);
+        } else {
+            printf("[%d] 0\n", i);
+        }
+    }
+}
+
 void displayTile(Tile tile)
 {
   printf("Tuile tirée : %d\n", tile.number);
@@ -34,6 +78,7 @@ void sendPlayerTurn(int sockfd){
 	StructMessage msg;
     msg.code = TILE_DRAW;
     swrite(sockfd, &msg, sizeof(msg));
+	printf("Veuillez attendre quelques instants...\n");
 }
 
 int main(int argc, char **argv)
@@ -82,20 +127,36 @@ int main(int argc, char **argv)
 	if (msg.code == START_GAME)
 	{
 		printf("DEBUT JEU\n");
-		sread(sockfd, &msg, sizeof(msg));
-		displayTile(msg.tile);
-		printf("Placer une tuile dans la grille\n");
-		int position;
-		scanf("%d",&position);
-		sendPlayerTurn(sockfd);
 
-		// swrite(sockfd, &msg, sizeof(msg));
-		
+		// Initialisation de la grille
+		Grid grid;
+		initGrid(&grid);
+
+		while(1)
+		{
+			sread(sockfd, &msg, sizeof(msg));
+			if (msg.code == END_GAME){
+				printf("Partie terminée\n");
+				break;
+			}
+
+			displayTile(msg.tile);
+			printGrid(&grid);
+			printf("Placer une tuile dans la grille\n");
+
+			int position;
+			scanf("%d",&position);
+			sendPlayerTurn(sockfd);
+
+			placeTile(&grid, msg.tile, position);
+		}
+		printGrid(&grid);
 	}
 	else
 	{
 		printf("PARTIE ANNULEE\n");
-		sclose(sockfd);
 	}
+
+	sclose(sockfd);
 	return 0;
 }

@@ -14,7 +14,7 @@
 #define MAX_TILES 40
 #define BACKLOG 5
 #define TIME_INSCRIPTION 10
-#define TOTAL_ROUNDS 20
+#define TOTAL_ROUNDS 3
 
 typedef struct Player
 {
@@ -35,7 +35,10 @@ void endServerHandler(int sig)
 void disconnect_players(Player *tabPlayers, int nbPlayers)
 {
 	for (int i = 0; i < nbPlayers; i++)
+	{
 		sclose(tabPlayers[i].sockfd);
+	}
+	printf("PLayers disconnected\n");
 	return;
 }
 
@@ -183,8 +186,6 @@ int main(int argc, char **argv)
     int randomIndex = rand() % MAX_TILES; // Choix d'un index aléatoire
     Tile currentTile = gameTiles[randomIndex]; // Sélection de la tuile aléatoire
 
-
-
     // Envoi de la tuile à chaque joueur
     for (int i = 0; i < nbPLayers; i++)
     {
@@ -218,12 +219,7 @@ int main(int argc, char **argv)
 			if (fds[i].revents & POLLIN)
 			{
 				ret = sread(tabPlayers[i].sockfd, &msg, sizeof(msg));
-				// tester si la connexion du client a été fermée: close(sockfd) ==> read renvoie 0
-				// OU utiliser un tableau de booléens fds_invalid[i] pour indiquer
-				// qu'un socket a été traité et ne doit plus l'être (cf. exemple19_avec_poll)
-				// printf("poll detected POLLIN event on client socket %d (%s)... %s", tabPlayers[i].sockfd, tabPlayers[i].pseudo, ret == 0 ? "this socket is closed!\n" : "\n");
-
-				if (ret != 0)
+				if (ret != 0 && msg.code == TILE_DRAW)
 				{
 					tabPlayers[i].shot = msg.code;
 					printf("%s a joué \n", tabPlayers[i].pseudo);
@@ -239,7 +235,15 @@ int main(int argc, char **argv)
     
 
     tour++; // Passage au tour suivant
-  }
+  	}
+
+	StructMessage endGameMsg;
+	endGameMsg.code = END_GAME;
+	for (int i = 0; i < nbPLayers; i++)
+	{	
+		swrite(tabPlayers[i].sockfd, &endGameMsg, sizeof(endGameMsg));
+	}
+  
 
 	printf("GAGNANT : %s\n", winnerName);
 	disconnect_players(tabPlayers, nbPLayers);
