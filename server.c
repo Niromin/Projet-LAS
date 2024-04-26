@@ -14,13 +14,14 @@
 #define MAX_TILES 40
 #define BACKLOG 5
 #define TIME_INSCRIPTION 10
-#define TOTAL_ROUNDS 21
+#define TOTAL_ROUNDS 4
 
 typedef struct Player
 {
 	char pseudo[MAX_PSEUDO];
 	int sockfd;
 	int shot;
+	int score;
 } Player;
 
 /*** globals variables ***/
@@ -56,6 +57,22 @@ void createTiles(Tile *tiles, int numTiles)
     {
         tiles[i].number = tileNumbers[i];
     }
+}
+
+void sortPlayersByScore(Player *players, int numPlayers)
+{
+    int i, j;
+    Player temp;
+
+    for (j = 0; j < numPlayers - 1; j++)
+	{
+		if (players[j].score < players[j + 1].score)
+		{
+			temp = players[j];
+			players[j] = players[j + 1];
+			players[j + 1] = temp;
+		}
+	}
 }
 
 
@@ -102,7 +119,7 @@ int main(int argc, char **argv)
 	i = 0;
 	int nbPLayers = 0;
 
-	// INSCRIPTION PART
+	/***************************INSCRIPTION PART****************************************/
 	alarm(TIME_INSCRIPTION);
 
 	while (!end_inscriptions)
@@ -164,77 +181,79 @@ int main(int argc, char **argv)
 		}
 	}
 
-  // GESTION TUILE
-  Tile gameTiles[MAX_TILES];
-  createTiles(gameTiles, MAX_TILES);
+/***************************GAME PART****************************************/
 
-  printf("Game tiles:\n");
-  for (int i = 0; i < MAX_TILES; i++)
-  {
-    printf("%d ", gameTiles[i].number);
-  }
-  printf("\n");
+	// GESTION TUILE
+	Tile gameTiles[MAX_TILES];
+	createTiles(gameTiles, MAX_TILES);
 
-
-
-  int tour = 1;
-  while(tour != TOTAL_ROUNDS)
-  {
-	printf("Tour n° %d\n",tour);
-	// Choix d'une tuile au hasard
-    srand(time(NULL)); 
-    int randomIndex = rand() % MAX_TILES; // Choix d'un index aléatoire
-    Tile currentTile = gameTiles[randomIndex]; // Sélection de la tuile aléatoire
-
-    // Envoi de la tuile à chaque joueur
-    for (int i = 0; i < nbPLayers; i++)
-    {
-      StructMessage msg;
-      msg.tile = currentTile;
-      swrite(tabPlayers[i].sockfd, &msg, sizeof(msg));
-    }
-
-	// GAME PART
-	int nbPlayersAlreadyPlayed = 0;
-
-	// init poll
-	for (i = 0; i < MAX_PLAYERS; i++)
+	printf("Game tiles:\n");
+	for (int i = 0; i < MAX_TILES; i++)
 	{
-		fds[i].fd = tabPlayers[i].sockfd;
-		fds[i].events = POLLIN;
+		printf("%d ", gameTiles[i].number);
 	}
+	printf("\n");
 
-	while (nbPlayersAlreadyPlayed < nbPLayers)
-	{
-		// poll during 1 second
-		ret = poll(fds, MAX_PLAYERS, 1000);
-		checkNeg(ret, "server poll error");
 
-		if (ret == 0)
-			continue;
 
-		// check player something to read
+  	int tour = 1;
+	while(tour != TOTAL_ROUNDS)
+  	{
+		printf("Tour n° %d\n",tour);
+		// Choix d'une tuile au hasard
+		srand(time(NULL)); 
+		int randomIndex = rand() % MAX_TILES; // Choix d'un index aléatoire
+		Tile currentTile = gameTiles[randomIndex]; // Sélection de la tuile aléatoire
+
+		// Envoi de la tuile à chaque joueur
+		for (int i = 0; i < nbPLayers; i++)
+		{
+		StructMessage msg;
+		msg.tile = currentTile;
+		swrite(tabPlayers[i].sockfd, &msg, sizeof(msg));
+		}
+
+		// GAME PART
+		int nbPlayersAlreadyPlayed = 0;
+
+		// init poll
 		for (i = 0; i < MAX_PLAYERS; i++)
 		{
-			if (fds[i].revents & POLLIN)
-			{
-				ret = sread(tabPlayers[i].sockfd, &msg, sizeof(msg));
-				if (ret != 0 && msg.code == TILE_DRAW)
-				{
-					tabPlayers[i].shot = msg.code;
-					printf("%s a joué \n", tabPlayers[i].pseudo);
-					nbPlayersAlreadyPlayed++;
-				}
-				// printf("Test 1\n");
-			}
-			// printf("Test 2\n");
+			fds[i].fd = tabPlayers[i].sockfd;
+			fds[i].events = POLLIN;
 		}
-		// printf("Test 3\n");
-	}
-	// printf("Test 4\n");
-    
 
-    tour++; // Passage au tour suivant
+		while (nbPlayersAlreadyPlayed < nbPLayers)
+		{
+			// poll during 1 second
+			ret = poll(fds, MAX_PLAYERS, 1000);
+			checkNeg(ret, "server poll error");
+
+			if (ret == 0)
+				continue;
+
+			// check player something to read
+			for (i = 0; i < MAX_PLAYERS; i++)
+			{
+				if (fds[i].revents & POLLIN)
+				{
+					ret = sread(tabPlayers[i].sockfd, &msg, sizeof(msg));
+					if (ret != 0 && msg.code == TILE_DRAW)
+					{
+						tabPlayers[i].shot = msg.code;
+						printf("%s a joué \n", tabPlayers[i].pseudo);
+						nbPlayersAlreadyPlayed++;
+					}
+					// printf("Test 1\n");
+				}
+				// printf("Test 2\n");
+			}
+			// printf("Test 3\n");
+		}
+		// printf("Test 4\n");
+		
+
+		tour++; // Passage au tour suivant
   	}
 
 	StructMessage endGameMsg;
@@ -243,6 +262,28 @@ int main(int argc, char **argv)
 	{	
 		swrite(tabPlayers[i].sockfd, &endGameMsg, sizeof(endGameMsg));
 	}
+
+	/***************************RANKING PART****************************************/
+	// Recupérer les score aux clients
+	for (int i = 0; i < nbPLayers; i++)
+	{
+		sread(tabPlayers[i].sockfd, &msg, sizeof(msg));
+		if(msg.code == END_GAME_SCORE)
+		{
+			tabPlayers[i].score = msg.tile.number;
+			printf("Joueur %s a %d de points\n", tabPlayers[i].pseudo, tabPlayers[i].score);
+		}
+	}
+
+	sortPlayersByScore(tabPlayers, nbPLayers);
+	printf("Joueurs triés par score :\n");
+    for (int i = 0; i < nbPLayers; i++)
+    {
+        printf("%d# %s : Score = %d\n", i + 1, tabPlayers[i].pseudo, tabPlayers[i].score);
+    }
+
+	
+
   
 
 	printf("GAGNANT : %s\n", winnerName);

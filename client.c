@@ -123,14 +123,12 @@ int calculateScore(Grid *grid) {
         }
 
         // Si le nombre est strictement plus petit que le précédent, la suite est brisée
-        if (previousNumber != EMPTY_TILE && grid->tiles[i].number < previousNumber) {
+        if (grid->tiles[i].number == -1 || previousNumber != EMPTY_TILE && grid->tiles[i].number < previousNumber) {
             // Calculer le score de la suite précédente et l'ajouter au score total
             score += calculateSuiteScore(currentLength);
-            // Réinitialiser la longueur actuelle
             currentLength = 0;
         }
 
-        // Mettre à jour le nombre précédent
         previousNumber = grid->tiles[i].number;
 
         // Incrémenter la longueur actuelle de la suite
@@ -213,8 +211,12 @@ int main(int argc, char **argv)
 		}
 		printGrid(&grid);
 		int score = calculateScore(&grid);
-
-		printf("Votre score : %d points\n", score);
+        printf("Votre score : %d points\n", score);
+        
+        // Envoie du score au server
+        msg.code = END_GAME_SCORE;
+        msg.tile.number = score; // Utilisez la tuile pour stocker le score
+        swrite(sockfd, &msg, sizeof(msg));
 	}
 	else
 	{

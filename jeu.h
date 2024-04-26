@@ -11,7 +11,8 @@
 #define START_GAME 13
 #define CANCEL_GAME 14
 #define END_GAME 15
-#define TILE_DRAW 16
+#define END_GAME_SCORE 16
+#define TILE_DRAW 17
 
 typedef struct
 {
