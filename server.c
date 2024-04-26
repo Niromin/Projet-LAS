@@ -14,7 +14,7 @@
 #define MAX_TILES 40
 #define BACKLOG 5
 #define TIME_INSCRIPTION 10
-#define TOTAL_ROUNDS 4
+#define TOTAL_ROUNDS 21
 
 typedef struct Player
 {
@@ -119,7 +119,7 @@ int main(int argc, char **argv)
 	i = 0;
 	int nbPLayers = 0;
 
-	/***************************INSCRIPTION PART****************************************/
+/***************************INSCRIPTION PART****************************************/
 	alarm(TIME_INSCRIPTION);
 
 	while (!end_inscriptions)
@@ -186,6 +186,7 @@ int main(int argc, char **argv)
 	// GESTION TUILE
 	Tile gameTiles[MAX_TILES];
 	createTiles(gameTiles, MAX_TILES);
+	int lenghtGameTile = MAX_TILES; // Taille logique de gameTile
 
 	printf("Game tiles:\n");
 	for (int i = 0; i < MAX_TILES; i++)
@@ -202,8 +203,15 @@ int main(int argc, char **argv)
 		printf("Tour n° %d\n",tour);
 		// Choix d'une tuile au hasard
 		srand(time(NULL)); 
-		int randomIndex = rand() % MAX_TILES; // Choix d'un index aléatoire
+		int randomIndex = rand() % lenghtGameTile; // Choix d'un index aléatoire
 		Tile currentTile = gameTiles[randomIndex]; // Sélection de la tuile aléatoire
+
+		// Supprimer la tuile choisie du tableau gameTiles
+		for (int j = randomIndex; j < lenghtGameTile - 1; j++) {
+			gameTiles[j] = gameTiles[j + 1];
+		}
+		gameTiles[lenghtGameTile - 1].number = 0; // Remplace la dernière tuile par une tuile vide
+		lenghtGameTile--;
 
 		// Envoi de la tuile à chaque joueur
 		for (int i = 0; i < nbPLayers; i++)
@@ -263,7 +271,7 @@ int main(int argc, char **argv)
 		swrite(tabPlayers[i].sockfd, &endGameMsg, sizeof(endGameMsg));
 	}
 
-	/***************************RANKING PART****************************************/
+/***************************RANKING PART****************************************/
 	// Recupérer les score aux clients
 	for (int i = 0; i < nbPLayers; i++)
 	{
