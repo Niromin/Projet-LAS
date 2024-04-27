@@ -217,11 +217,14 @@ int main(int argc, char **argv)
         msg.code = END_GAME_SCORE;
         msg.tile.number = score; // Utilisez la tuile pour stocker le score
         swrite(sockfd, &msg, sizeof(msg));
+
 	}
 	else
 	{
 		printf("PARTIE ANNULEE\n");
 	}
+    msg.code = 0;
+    swrite(sockfd, &msg, sizeof(msg));
 
 	sclose(sockfd);
 	return 0;

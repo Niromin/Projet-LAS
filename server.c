@@ -292,6 +292,7 @@ int main(int argc, char **argv)
 
 		printf("GAGNANT : %s\n", winnerName);
 		disconnect_players(tabPlayers, nbPLayers);
+		endGameMsg.code = 0;
 		nbPLayers = 0;
 		continue;
 	}
