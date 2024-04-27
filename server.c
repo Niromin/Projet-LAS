@@ -61,7 +61,7 @@ void createTiles(Tile *tiles, int numTiles)
 
 void sortPlayersByScore(Player *players, int numPlayers)
 {
-    int i, j;
+    int j;
     Player temp;
 
     for (j = 0; j < numPlayers - 1; j++)
@@ -121,6 +121,9 @@ int main(int argc, char **argv)
 
 /***************************INSCRIPTION PART****************************************/
 	while(1){
+		
+		i = 0;
+
 		while (!end_inscriptions)
 		{
 			/* client trt */
@@ -168,6 +171,7 @@ int main(int argc, char **argv)
 				swrite(tabPlayers[i].sockfd, &msg, sizeof(msg));
 			}
 			disconnect_players(tabPlayers, nbPLayers);
+			i--;
 			nbPLayers = 0;
 			end_inscriptions = 0;
 			continue;

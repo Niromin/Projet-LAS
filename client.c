@@ -186,6 +186,7 @@ int main(int argc, char **argv)
 	if (msg.code == START_GAME)
 	{
 		printf("DEBUT JEU\n");
+        printf("CODE = %d\n", msg.code);
 
 		// Initialisation de la grille
 		Grid grid;
@@ -223,6 +224,7 @@ int main(int argc, char **argv)
 	{
 		printf("PARTIE ANNULEE\n");
 	}
+    // Reset message
     msg.code = 0;
     swrite(sockfd, &msg, sizeof(msg));
 
