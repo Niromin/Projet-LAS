@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <time.h>
+#include <errno.h>
 
 #include "jeu.h"
 #include "utils_v1.h"
@@ -27,10 +28,23 @@ typedef struct Player
 /*** globals variables ***/
 Player tabPlayers[MAX_PLAYERS];
 volatile sig_atomic_t end_inscriptions = 0;
-
+volatile sig_atomic_t game_started = 0;
+volatile sig_atomic_t inscription_started = 0;
+int exitMessage = 0;
 void endServerHandler(int sig)
 {
+	inscription_started = 0;
 	end_inscriptions = 1;
+}
+
+void interruptHandler(int sig)
+{
+	exitMessage = 1;
+    if (!game_started && !inscription_started) {
+        printf("Arrêt du serveur.\n"); 
+        exit(0);
+    }
+    // Ne rien faire si le jeu est en cours
 }
 
 void disconnect_players(Player *tabPlayers, int nbPlayers)
@@ -58,7 +72,7 @@ void createTiles(Tile *tiles, int numTiles)
         tiles[i].number = tileNumbers[i];
     }
 }
-
+// on doit pas pouvoir sigint pendant la phase insc et game seulement en IDLE et du cp voila jsp
 void sortPlayersByScore(Player *players, int numPlayers)
 {
     int j;
@@ -111,7 +125,8 @@ int main(int argc, char **argv)
 	struct pollfd fds[MAX_PLAYERS];
 	char winnerName[256];
 
-	ssigaction(SIGALRM, endServerHandler);
+	ssigaction(SIGALRM, endServerHandler); // Arret de la phase d'inscription apres fin alarm
+	ssigaction(SIGINT, interruptHandler); // Arret du server avec SIGINT seulement si game_started is false
 
 	sockfd = initSocketServer(SERVER_PORT);
 	printf("Le serveur tourne sur le port : %i \n", SERVER_PORT);
@@ -121,7 +136,7 @@ int main(int argc, char **argv)
 
 /***************************INSCRIPTION PART****************************************/
 	while(1){
-		
+
 		i = 0;
 
 		while (!end_inscriptions)
@@ -130,6 +145,7 @@ int main(int argc, char **argv)
 			newsockfd = accept(sockfd, NULL, NULL); // saccept() exit le programme si accept a été interrompu par l'alarme
 			if (newsockfd > 0)						/* no error on accept */
 			{
+				inscription_started = 1;
 				alarm(TIME_INSCRIPTION);
 				ret = sread(newsockfd, &msg, sizeof(msg));
 
@@ -148,6 +164,7 @@ int main(int argc, char **argv)
 						if (nbPLayers == MAX_PLAYERS)
 						{
 							alarm(0); // cancel alarm
+							inscription_started = 0;
 							end_inscriptions = 1;
 						}
 					}
@@ -164,6 +181,11 @@ int main(int argc, char **argv)
 		printf("FIN DES INSCRIPTIONS\n");
 		if (nbPLayers < MIN_PLAYERS)
 		{
+			if (exitMessage == 1){
+				printf("Fermeture du serveur \n");
+				sclose(sockfd);
+				exit(0);
+			}
 			printf("PARTIE ANNULEE .. PAS ASSEZ DE JOUEURS\n");
 			msg.code = CANCEL_GAME;
 			for (i = 0; i < nbPLayers; i++)
@@ -178,6 +200,7 @@ int main(int argc, char **argv)
 		}
 		else
 		{
+			game_started = 1;
 			printf("PARTIE VA DEMARRER ... \n");
 			msg.code = START_GAME;
 			for (i = 0; i < nbPLayers; i++){
@@ -237,9 +260,18 @@ int main(int argc, char **argv)
 
 			while (nbPlayersAlreadyPlayed < nbPLayers)
 			{
+				
 				// poll during 1 second
 				ret = poll(fds, MAX_PLAYERS, 1000);
-				checkNeg(ret, "server poll error");
+				if (ret == -1) {
+					if (errno == EINTR) {
+						// Si le poll est interrompu par un signal, continuez la boucle
+						continue;
+					} else {
+						perror("server poll error");
+						exit(EXIT_FAILURE);
+					}
+				}
 
 				if (ret == 0)
 					continue;
@@ -250,6 +282,7 @@ int main(int argc, char **argv)
 					if (fds[i].revents & POLLIN)
 					{
 						ret = sread(tabPlayers[i].sockfd, &msg, sizeof(msg));
+						
 						if (ret != 0 && msg.code == TILE_DRAW)
 						{
 							tabPlayers[i].shot = msg.code;
@@ -294,9 +327,11 @@ int main(int argc, char **argv)
 			printf("%d# %s : Score = %d\n", i + 1, tabPlayers[i].pseudo, tabPlayers[i].score);
 		}
 
-		printf("GAGNANT : %s\n", winnerName);
+		printf("GAGNANT : %s\n", tabPlayers[0].pseudo);
 		disconnect_players(tabPlayers, nbPLayers);
 		endGameMsg.code = 0;
+		game_started = 0;
+		end_inscriptions = 0;
 		nbPLayers = 0;
 		continue;
 	}
