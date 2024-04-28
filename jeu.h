@@ -10,11 +10,21 @@
 #define INSCRIPTION_KO 12
 #define START_GAME 13
 #define CANCEL_GAME 14
+#define END_GAME 15
+#define END_GAME_SCORE 16
+#define TILE_DRAW 17
+#define IDLE 18
+
+typedef struct
+{
+  int number;
+} Tile;
 
 /* struct message used between server and client */
 typedef struct
 {
   char messageText[MAX_PSEUDO];
   int code;
+  Tile tile;
 } StructMessage;
 #endif
