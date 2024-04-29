@@ -32,6 +32,7 @@ volatile sig_atomic_t end_inscriptions = 0;
 volatile sig_atomic_t game_started = 0;
 volatile sig_atomic_t inscription_started = 0;
 int exitMessage = 0;
+
 void endServerHandler(int sig)
 {
 	inscription_started = 0;
@@ -124,7 +125,7 @@ int main(int argc, char **argv)
 	StructMessage msg;
 	int ret;
 	struct pollfd fds[MAX_PLAYERS];
-	char winnerName[256];
+	char line[256];
 
 	ssigaction(SIGALRM, endServerHandler); // Arret de la phase d'inscription apres fin alarm
 	ssigaction(SIGINT, interruptHandler); // Arret du server avec SIGINT seulement si game_started is false
@@ -215,6 +216,7 @@ int main(int argc, char **argv)
 		int gameTiles[MAX_TILES];
 		createTiles(gameTiles, MAX_TILES);
 		int lenghtGameTile = MAX_TILES; // Taille logique de gameTile
+		int currentTile;
 
 		printf("Game tiles:\n");
 		for (int i = 0; i < MAX_TILES; i++)
@@ -222,85 +224,157 @@ int main(int argc, char **argv)
 			printf("%d ", gameTiles[i]);
 		}
 		printf("\n");
-
-
-
 		int tour = 1;
-		while(tour != TOTAL_ROUNDS)
-		{
-			printf("Tour n° %d\n",tour);
-			// Choix d'une tuile au hasard
-			srand(time(NULL)); 
-			int randomIndex = rand() % lenghtGameTile; // Choix d'un index aléatoire
-			int currentTile = gameTiles[randomIndex]; // Sélection de la tuile aléatoire
 
-			// Supprimer la tuile choisie du tableau gameTiles
-			for (int j = randomIndex; j < lenghtGameTile - 1; j++) {
-				gameTiles[j] = gameTiles[j + 1];
-			}
-			gameTiles[lenghtGameTile - 1] = 0; // Remplace la dernière tuile par une tuile vide
-			lenghtGameTile--;			
+		if (argc >= 2){
+			printf("/////TEST IF\n");
 
-			// Envoi de la tuile à chaque joueur
-			for (int i = 0; i < nbPLayers; i++)
-			{
-				StructMessage msg;
-				msg.tile = currentTile;
-				swrite(tabPlayers[i].sockfd, &msg, sizeof(msg));
-			}
-
-			// GAME PART
-			int nbPlayersAlreadyPlayed = 0;
-
-			// init poll
-			for (i = 0; i < MAX_PLAYERS; i++)
-			{
-				fds[i].fd = tabPlayers[i].sockfd;
-				fds[i].events = POLLIN;
-			}
-
-			while (nbPlayersAlreadyPlayed < nbPLayers)
-			{
-				
-				// poll during 1 second
-				ret = poll(fds, MAX_PLAYERS, 1000);
-				if (ret == -1) {
-					if (errno == EINTR) {
-						// Si le poll est interrompu par un signal, continuez la boucle
-						continue;
-					} else {
-						perror("server poll error");
-						exit(EXIT_FAILURE);
-					}
+			FILE *fd2 = open(argv[1], "r");
+			checkNull(fd2,"SIUUUUU");
+			while(fread(line, sizeof(line), fd2) || tour != TOTAL_ROUNDS){
+				printf("/////TEST WHILE\n");
+				printf("%s", line);
+				// GAME PART
+				currentTile = atoi(line);
+				// Envoi de la tuile à chaque joueur
+				for (int i = 0; i < nbPLayers; i++)
+				{
+					StructMessage msg;
+					msg.tile = currentTile;
+					swrite(tabPlayers[i].sockfd, &msg, sizeof(msg));
 				}
 
-				if (ret == 0)
-					continue;
+				int nbPlayersAlreadyPlayed = 0;
 
-				// check player something to read
+				// init poll
 				for (i = 0; i < MAX_PLAYERS; i++)
 				{
-					if (fds[i].revents & POLLIN)
-					{
-						ret = sread(tabPlayers[i].sockfd, &msg, sizeof(msg));
-						
-						if (ret != 0 && msg.code == TILE_DRAW)
-						{
-							tabPlayers[i].shot = msg.code;
-							printf("%s a joué \n", tabPlayers[i].pseudo);
-							nbPlayersAlreadyPlayed++;
-						}
-						// printf("Test 1\n");
-					}
-					// printf("Test 2\n");
+					fds[i].fd = tabPlayers[i].sockfd;
+					fds[i].events = POLLIN;
 				}
-				// printf("Test 3\n");
-			}
-			// printf("Test 4\n");
-			
 
-			tour++; // Passage au tour suivant
+				while (nbPlayersAlreadyPlayed < nbPLayers)
+				{
+					
+					// poll during 1 second
+					ret = poll(fds, MAX_PLAYERS, 1000);
+					if (ret == -1) {
+						if (errno == EINTR) {
+							// Si le poll est interrompu par un signal, continuez la boucle
+							continue;
+						} else {
+							perror("server poll error");
+							exit(EXIT_FAILURE);
+						}
+					}
+
+					if (ret == 0)
+						continue;
+
+					// check player something to read
+					for (i = 0; i < MAX_PLAYERS; i++)
+					{
+						if (fds[i].revents & POLLIN)
+						{
+							ret = sread(tabPlayers[i].sockfd, &msg, sizeof(msg));
+							
+							if (ret != 0 && msg.code == TILE_DRAW)
+							{
+								tabPlayers[i].shot = msg.code;
+								printf("%s a joué \n", tabPlayers[i].pseudo);
+								nbPlayersAlreadyPlayed++;
+							}
+							// printf("Test 1\n");
+						}
+						// printf("Test 2\n");
+					}
+					// printf("Test 3\n");
+				}
+				// printf("Test 4\n");
+				
+
+				tour++; //
+				
+			}
 		}
+		else{
+			while(tour != TOTAL_ROUNDS)
+			{
+				printf("Tour n° %d\n",tour);
+				// Choix d'une tuile au hasard
+				srand(time(NULL)); 
+				int randomIndex = rand() % lenghtGameTile; // Choix d'un index aléatoire
+				int currentTile = gameTiles[randomIndex]; // Sélection de la tuile aléatoire
+
+				// Supprimer la tuile choisie du tableau gameTiles
+				for (int j = randomIndex; j < lenghtGameTile - 1; j++) {
+					gameTiles[j] = gameTiles[j + 1];
+				}
+				gameTiles[lenghtGameTile - 1] = 0; // Remplace la dernière tuile par une tuile vide
+				lenghtGameTile--;			
+
+				// Envoi de la tuile à chaque joueur
+				for (int i = 0; i < nbPLayers; i++)
+				{
+					StructMessage msg;
+					msg.tile = currentTile;
+					swrite(tabPlayers[i].sockfd, &msg, sizeof(msg));
+				}
+
+				// GAME PART
+				int nbPlayersAlreadyPlayed = 0;
+
+				// init poll
+				for (i = 0; i < MAX_PLAYERS; i++)
+				{
+					fds[i].fd = tabPlayers[i].sockfd;
+					fds[i].events = POLLIN;
+				}
+
+				while (nbPlayersAlreadyPlayed < nbPLayers)
+				{
+					
+					// poll during 1 second
+					ret = poll(fds, MAX_PLAYERS, 1000);
+					if (ret == -1) {
+						if (errno == EINTR) {
+							// Si le poll est interrompu par un signal, continuez la boucle
+							continue;
+						} else {
+							perror("server poll error");
+							exit(EXIT_FAILURE);
+						}
+					}
+
+					if (ret == 0)
+						continue;
+
+					// check player something to read
+					for (i = 0; i < MAX_PLAYERS; i++)
+					{
+						if (fds[i].revents & POLLIN)
+						{
+							ret = sread(tabPlayers[i].sockfd, &msg, sizeof(msg));
+							
+							if (ret != 0 && msg.code == TILE_DRAW)
+							{
+								tabPlayers[i].shot = msg.code;
+								printf("%s a joué \n", tabPlayers[i].pseudo);
+								nbPlayersAlreadyPlayed++;
+							}
+							// printf("Test 1\n");
+						}
+						// printf("Test 2\n");
+					}
+					// printf("Test 3\n");
+				}
+				// printf("Test 4\n");
+				
+
+				tour++; // Passage au tour suivant
+			}
+		}
+		
 
 		StructMessage endGameMsg;
 		endGameMsg.code = END_GAME;
