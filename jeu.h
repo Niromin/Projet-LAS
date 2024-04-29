@@ -15,16 +15,16 @@
 #define TILE_DRAW 17
 #define IDLE 18
 
-typedef struct
+/*typedef struct
 {
   int number;
-} Tile;
+} Tile;*/
 
 /* struct message used between server and client */
 typedef struct
 {
   char messageText[MAX_PSEUDO];
   int code;
-  Tile tile;
+  int tile;
 } StructMessage;
 #endif

@@ -15,7 +15,8 @@
 #define MAX_TILES 40
 #define BACKLOG 5
 #define TIME_INSCRIPTION 10
-#define TOTAL_ROUNDS 3
+#define TOTAL_ROUNDS 21
+#define BUFFER_SIZE 1024
 
 typedef struct Player
 {
@@ -41,7 +42,7 @@ void interruptHandler(int sig)
 {
 	exitMessage = 1;
     if (!game_started && !inscription_started) {
-        printf("Arrêt du serveur.\n"); 
+        printf("Arrêt du serveur.\n");
         exit(0);
     }
     // Ne rien faire si le jeu est en cours
@@ -57,7 +58,7 @@ void disconnect_players(Player *tabPlayers, int nbPlayers)
 	return;
 }
 
-void createTiles(Tile *tiles, int numTiles)
+void createTiles(int *tiles, int numTiles)
 {
     int tileNumbers[MAX_TILES] = 
     {
@@ -69,7 +70,7 @@ void createTiles(Tile *tiles, int numTiles)
 
     for (int i = 0; i < numTiles; i++)
     {
-        tiles[i].number = tileNumbers[i];
+        tiles[i] = tileNumbers[i];
     }
 }
 // on doit pas pouvoir sigint pendant la phase insc et game seulement en IDLE et du cp voila jsp
@@ -211,14 +212,14 @@ int main(int argc, char **argv)
 	/***************************GAME PART****************************************/
 
 		// GESTION TUILE
-		Tile gameTiles[MAX_TILES];
+		int gameTiles[MAX_TILES];
 		createTiles(gameTiles, MAX_TILES);
 		int lenghtGameTile = MAX_TILES; // Taille logique de gameTile
 
 		printf("Game tiles:\n");
 		for (int i = 0; i < MAX_TILES; i++)
 		{
-			printf("%d ", gameTiles[i].number);
+			printf("%d ", gameTiles[i]);
 		}
 		printf("\n");
 
@@ -231,14 +232,14 @@ int main(int argc, char **argv)
 			// Choix d'une tuile au hasard
 			srand(time(NULL)); 
 			int randomIndex = rand() % lenghtGameTile; // Choix d'un index aléatoire
-			Tile currentTile = gameTiles[randomIndex]; // Sélection de la tuile aléatoire
+			int currentTile = gameTiles[randomIndex]; // Sélection de la tuile aléatoire
 
 			// Supprimer la tuile choisie du tableau gameTiles
 			for (int j = randomIndex; j < lenghtGameTile - 1; j++) {
 				gameTiles[j] = gameTiles[j + 1];
 			}
-			gameTiles[lenghtGameTile - 1].number = 0; // Remplace la dernière tuile par une tuile vide
-			lenghtGameTile--;
+			gameTiles[lenghtGameTile - 1] = 0; // Remplace la dernière tuile par une tuile vide
+			lenghtGameTile--;			
 
 			// Envoi de la tuile à chaque joueur
 			for (int i = 0; i < nbPLayers; i++)
@@ -315,7 +316,7 @@ int main(int argc, char **argv)
 			sread(tabPlayers[i].sockfd, &msg, sizeof(msg));
 			if(msg.code == END_GAME_SCORE)
 			{
-				tabPlayers[i].score = msg.tile.number;
+				tabPlayers[i].score = msg.tile;
 				printf("Joueur %s a %d de points\n", tabPlayers[i].pseudo, tabPlayers[i].score);
 			}
 		}

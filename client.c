@@ -12,11 +12,11 @@
 #include "utils_v1.h"
 
 #define GRID_SIZE 20
-#define EMPTY_TILE -2
+#define EMPTY_TILE 0
 
 // Creation de la grille
 typedef struct{
-	Tile tiles[GRID_SIZE];
+	int tiles[GRID_SIZE];
 	int count; // Nombre de tuile dans la table
 }Grid;
 
@@ -36,15 +36,15 @@ int initSocketClient(char *serverIP, int serverPort)
 
 void initGrid(Grid *grid) {
 	for (int i = 0; i < GRID_SIZE; i++) {
-        grid->tiles[i].number = 0; // Initialise chaque emplacement avec une tuile vide
+        grid->tiles[i] = EMPTY_TILE; // Initialise chaque emplacement avec une tuile vide
     }
 }
 
-void placeTile(Grid *grid, Tile tile, int position) {
+void placeTile(Grid *grid, int tile, int position) {
     // Vérifie si la position est valide et si la grille n'est pas pleine
     if (position >= 0 && position < GRID_SIZE && grid->count < GRID_SIZE) {
         // Vérifie si la position est déjà occupée
-        while (grid->tiles[position].number != 0) {
+        while (grid->tiles[position] != 0) {
             position++; // Essaie la position suivante
             if (position >= GRID_SIZE) {
                 position = 0; // Si on dépasse la taille de la grille, revenir au début
@@ -62,17 +62,17 @@ void placeTile(Grid *grid, Tile tile, int position) {
 void printGrid(Grid *grid) {
     printf("Grille :\n");
     for (int i = 0; i < GRID_SIZE; i++) {
-        if (grid->tiles[i].number != 0) {
-            printf("[%d] %d\n", i, grid->tiles[i].number);
+        if (grid->tiles[i] != 0) {
+            printf("[%d] %d\n", i, grid->tiles[i]);
         } else {
-            printf("[%d] 0\n", i);
+            printf("[%d]\n", i);
         }
     }
 }
 
-void displayTile(Tile tile)
+void displayTile(int tile)
 {
-  printf("Tuile tirée : %d\n", tile.number);
+  printf("Tuile tirée : %d\n", tile);
 }
 
 void sendPlayerTurn(int sockfd){
@@ -116,20 +116,19 @@ int calculateScore(Grid *grid) {
 
     for (int i = 0; i < grid->count; i++) {
         // Si la case est vide, réinitialiser la longueur actuelle et le nombre précédent
-        if (grid->tiles[i].number == EMPTY_TILE) {
+        if (grid->tiles[i] == EMPTY_TILE) {
             currentLength = 0;
             previousNumber = EMPTY_TILE;
             continue;
         }
-
         // Si le nombre est strictement plus petit que le précédent, la suite est brisée
-        if (grid->tiles[i].number == -1 || previousNumber != EMPTY_TILE && grid->tiles[i].number < previousNumber) {
+        if (previousNumber != -1 && previousNumber != EMPTY_TILE && grid->tiles[i] < previousNumber) {
             // Calculer le score de la suite précédente et l'ajouter au score total
             score += calculateSuiteScore(currentLength);
             currentLength = 0;
         }
 
-        previousNumber = grid->tiles[i].number;
+        previousNumber = grid->tiles[i];
 
         // Incrémenter la longueur actuelle de la suite
         currentLength++;
@@ -205,7 +204,15 @@ int main(int argc, char **argv)
 			printf("Placer une tuile dans la grille\n");
 
 			int position;
-			scanf("%d",&position);
+            while(1){
+                scanf("%d",&position);
+                if (position < 0 || position >= GRID_SIZE){
+                    printf("Choisissez une position valide !\n");
+                    continue;
+                } else{
+                    break;
+                }
+            }
 			sendPlayerTurn(sockfd);
 
 			placeTile(&grid, msg.tile, position);
@@ -216,7 +223,7 @@ int main(int argc, char **argv)
         
         // Envoie du score au server
         msg.code = END_GAME_SCORE;
-        msg.tile.number = score; // Utilisez la tuile pour stocker le score
+        msg.tile = score; // Utilisez la tuile pour stocker le score
         swrite(sockfd, &msg, sizeof(msg));
 
 	}
