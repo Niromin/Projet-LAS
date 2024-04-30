@@ -13,6 +13,8 @@
 
 #define GRID_SIZE 20
 #define EMPTY_TILE 0
+#define MAX_LINE_LENGTH 1024
+#define MAX_LINES 100
 
 // Creation de la grille
 typedef struct{
@@ -122,7 +124,7 @@ int calculateScore(Grid *grid) {
             continue;
         }
         // Si le nombre est strictement plus petit que le précédent, la suite est brisée
-        if (previousNumber != -1 && previousNumber != EMPTY_TILE && grid->tiles[i] < previousNumber) {
+        if ((previousNumber != -1 || previousNumber != 31) && previousNumber != EMPTY_TILE && grid->tiles[i] < previousNumber) {
             // Calculer le score de la suite précédente et l'ajouter au score total
             score += calculateSuiteScore(currentLength);
             currentLength = 0;
@@ -149,13 +151,31 @@ int main(int argc, char **argv)
 	StructMessage msg;
 	char c;
 
+    char lines[MAX_LINES][MAX_LINE_LENGTH]; // Tableau pour stocker les lignes
+    int line_count = 0;
+    int indiceTabLine = 0;
+
+    // Lecture de chaque ligne jusqu'à la fin du fichier
+    if (!isatty(fileno(stdin))){
+        while (line_count < MAX_LINES && scanf("%[^\n]%*c", lines[line_count]) == 1) {
+            line_count++;
+        }
+    }
+
 	/* retrieve player name */
 	printf("Bienvenue dans le programe d'inscription au serveur de jeu\n");
 	printf("Pour participer entrez votre nom :\n");
-	ret = sread(0, pseudo, MAX_PSEUDO);
-	checkNeg(ret, "read client error");
-	pseudo[ret - 1] = '\0';
-	strcpy(msg.messageText, pseudo);
+    if (line_count != 0){
+        strcpy(pseudo, lines[indiceTabLine]);
+        indiceTabLine++;
+    }
+
+    ret = sread(0, pseudo, MAX_PSEUDO);
+    checkNeg(ret, "read client error");
+    pseudo[ret - 1] = '\0';
+    strcpy(msg.messageText, pseudo);
+    
+
 	msg.code = INSCRIPTION_REQUEST;
 
 	sockfd = initSocketClient(SERVER_IP, SERVER_PORT);
@@ -185,7 +205,6 @@ int main(int argc, char **argv)
 	if (msg.code == START_GAME)
 	{
 		printf("DEBUT JEU\n");
-        printf("CODE = %d\n", msg.code);
 
 		// Initialisation de la grille
 		Grid grid;
@@ -204,6 +223,10 @@ int main(int argc, char **argv)
 			printf("Placer une tuile dans la grille\n");
 
 			int position;
+            if(line_count != 0){
+                position = atoi(lines[indiceTabLine]) - 1;
+                indiceTabLine++;
+            }
             while(1){
                 scanf("%d",&position);
                 if (position < 0 || position >= GRID_SIZE){
