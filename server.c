@@ -126,6 +126,19 @@ int main(int argc, char **argv)
 	int ret;
 	struct pollfd fds[MAX_PLAYERS];
 	char line[256];
+	int tableauLine[1024];
+	int indiceTabLine = 0;
+
+	if (argc >= 2){
+		FILE *fd2 = fopen(argv[1], "r");
+		checkNull(fd2,"SIUUUUU\n");
+		i = 0;
+		while(fgets(line, sizeof(line), fd2) != NULL ){
+			tableauLine[i] = atoi(line);
+			i++;
+		}
+	}
+
 
 	ssigaction(SIGALRM, endServerHandler); // Arret de la phase d'inscription apres fin alarm
 	ssigaction(SIGINT, interruptHandler); // Arret du server avec SIGINT seulement si game_started is false
@@ -227,15 +240,12 @@ int main(int argc, char **argv)
 		int tour = 1;
 
 		if (argc >= 2){
-			printf("/////TEST IF\n");
 
-			FILE *fd2 = open(argv[1], "r");
-			checkNull(fd2,"SIUUUUU");
-			while(fread(line, sizeof(line), fd2) || tour != TOTAL_ROUNDS){
-				printf("/////TEST WHILE\n");
-				printf("%s", line);
+			while(tour != TOTAL_ROUNDS){
+
 				// GAME PART
-				currentTile = atoi(line);
+				currentTile = tableauLine[indiceTabLine];
+				indiceTabLine++;
 				// Envoi de la tuile à chaque joueur
 				for (int i = 0; i < nbPLayers; i++)
 				{
