@@ -18,6 +18,9 @@
 #define TOTAL_ROUNDS 21
 #define BUFFER_SIZE 1024
 
+// # GROUPE 26
+// # MEMBRE: PAQUET Gabriel, QUIAMBAO Roemer-Trinité, Villanueva Brian
+
 typedef struct Player
 {
 	char pseudo[MAX_PSEUDO];
